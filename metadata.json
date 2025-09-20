@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Sách Lật 3D A4",
+  "description": "Một ứng dụng web để tạo và đọc sách lật 3D tương tác từ các tệp hình ảnh được tải lên, mô phỏng trải nghiệm đọc sách khổ A4 với hiệu ứng lật trang chân thực.",
+  "requestFramePermissions": []
+}
