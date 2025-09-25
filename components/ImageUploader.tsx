@@ -1,8 +1,8 @@
-
 import React, { useState, useCallback } from 'react';
 
 interface ImageUploaderProps {
   onImagesUpload: (imageUrls: string[]) => void;
+  onCancel: () => void;
 }
 
 const UploadIcon: React.FC = () => (
@@ -11,7 +11,13 @@ const UploadIcon: React.FC = () => (
   </svg>
 );
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload }) => {
+const ArrowUturnLeftIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+    </svg>
+);
+
+const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,31 +31,35 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload }) => {
     
     try {
       const imagePromises = Array.from(files).map(file => {
+        // A type guard is safer than a type assertion.
+        if (!(file instanceof Blob)) {
+          return Promise.reject(new Error('Một trong những mục được tải lên không phải là tệp hợp lệ.'));
+        }
         return new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
             if (typeof reader.result === 'string') {
               resolve(reader.result);
             } else {
-              reject(new Error('Failed to read file'));
+              reject(new Error('Không thể đọc tệp dưới dạng URL dữ liệu.'));
             }
           };
           reader.onerror = reject;
-          // FIX: The `file` parameter was being inferred as `unknown`, causing a type error.
-          // Explicitly casting it to `Blob` ensures it matches the expected type for `readAsDataURL`.
-          reader.readAsDataURL(file as Blob);
+          // With the type guard, we can safely pass `file` without casting.
+          reader.readAsDataURL(file);
         });
       });
       
       const imageUrls = await Promise.all(imagePromises);
       onImagesUpload(imageUrls);
-    } catch (err) {
-      setError('Đã xảy ra lỗi khi tải hình ảnh. Vui lòng thử lại.');
+    } catch (err: any) {
+      setError(err.message || 'Đã xảy ra lỗi khi tải hình ảnh. Vui lòng thử lại.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   }, [onImagesUpload]);
+
 
   return (
     <div className="w-full max-w-2xl">
@@ -64,7 +74,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload }) => {
           </div>
           <input id="dropzone-file" type="file" className="hidden" multiple accept="image/*" onChange={handleFileChange} disabled={loading} />
         </label>
-      </div> 
+      </div>
+      <div className="text-center mt-6">
+        <button
+          onClick={onCancel}
+          className="flex items-center gap-2 mx-auto bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+        >
+          <ArrowUturnLeftIcon className="w-5 h-5" />
+          Quay về danh sách sách
+        </button>
+      </div>
     </div>
   );
 };

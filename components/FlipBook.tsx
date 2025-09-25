@@ -1,320 +1,315 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import type { BookPage } from '../App';
+import HTMLFlipBook from 'react-pageflip';
 
 interface FlipBookProps {
+  title: string;
   pages: BookPage[];
   onTitleUpdate: (pageIndex: number, newTitle: string) => void;
   onPageDelete: (pageIndex: number) => void;
+  onGoToDashboard: () => void;
 }
 
+// Icons
+const TrashIcon: React.FC<{className?: string}> = ({className}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.033-2.124H8.033c-1.12 0-2.033.944-2.033 2.124v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+  </svg>
+);
+const PencilSquareIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+    </svg>
+);
 const ChevronLeftIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
     </svg>
 );
-
 const ChevronRightIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
     </svg>
 );
 
-const HomeIcon: React.FC<{className?: string}> = ({className}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955a1.125 1.125 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h7.5" />
-    </svg>
-);
 
-const PencilIcon: React.FC<{className?: string}> = ({className}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-  </svg>
-);
-
-const CheckIcon: React.FC<{className?: string}> = ({className}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-    </svg>
-);
-
-const XMarkIcon: React.FC<{className?: string}> = ({className}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-    </svg>
-);
-
-const TrashIcon: React.FC<{className?: string}> = ({className}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.033-2.124H8.033c-1.12 0-2.033.944-2.033 2.124v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-  </svg>
-);
-
-const FlipBook: React.FC<FlipBookProps> = ({ pages, onTitleUpdate, onPageDelete }) => {
-  const [currentPage, setCurrentPage] = useState(0);
-  const [editingPage, setEditingPage] = useState<number | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const totalPages = pages.length + 1; 
-  
-  useEffect(() => {
-    const lastValidContentPage = pages.length;
-    if (currentPage > lastValidContentPage) {
-      setCurrentPage(lastValidContentPage);
-    }
-  }, [pages, currentPage]);
-
-  const goNextPage = useCallback(() => {
-    setCurrentPage((current) => Math.min(current + 1, totalPages));
-  }, [totalPages]);
-
-  const goPrevPage = useCallback(() => {
-    setCurrentPage((current) => Math.max(current - 1, 0));
-  }, []);
-  
-  const jumpToPage = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
-  }
-    
-  const bookContainerRef = useRef<HTMLDivElement>(null);
-  const dragInfo = useRef<{ startX: number; side: 'left' | 'right' | null }>({ startX: 0, side: null });
-
-  const handleDragStart = (clientX: number) => {
-    const bookElement = bookContainerRef.current;
-    if (!bookElement) return;
-    const rect = bookElement.getBoundingClientRect();
-    const midpoint = rect.left + rect.width / 2;
-
-    if (clientX >= rect.left && clientX <= rect.right) {
-        if (clientX > midpoint) {
-            dragInfo.current = { startX: clientX, side: 'right' };
-        } else {
-            dragInfo.current = { startX: clientX, side: 'left' };
-        }
-    }
-  };
-
-  const handleDragEnd = (clientX: number) => {
-    if (dragInfo.current.side === null) return;
-    
-    const deltaX = clientX - dragInfo.current.startX;
-    const swipeThreshold = 50;
-
-    // If drag started on the right side, a left swipe (negative delta) should go to the next page.
-    if (dragInfo.current.side === 'right' && deltaX < -swipeThreshold) { 
-      goNextPage();
-    } 
-    // If drag started on the left side, a right swipe (positive delta) should go to the previous page.
-    else if (dragInfo.current.side === 'left' && deltaX > swipeThreshold) {
-      goPrevPage();
-    }
-    dragInfo.current = { startX: 0, side: null };
-  };
-
-  useEffect(() => {
-    const bookElement = bookContainerRef.current;
-    if (!bookElement) return;
-
-    const onMouseDown = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('button, input, a')) { return; }
-      e.preventDefault();
-      handleDragStart(e.clientX);
-      bookElement.style.cursor = 'grabbing';
-    };
-    const onMouseUp = (e: MouseEvent) => {
-      if (dragInfo.current.side !== null) { 
-        handleDragEnd(e.clientX); 
-      }
-      bookElement.style.cursor = 'grab';
-    };
-    const onTouchStart = (e: TouchEvent) => {
-      if ((e.target as HTMLElement).closest('button, input, a')) { return; }
-      handleDragStart(e.touches[0].clientX);
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (dragInfo.current.side !== null) { 
-        handleDragEnd(e.changedTouches[0].clientX); 
-      }
-    };
-    
-    bookElement.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
-    bookElement.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchend', onTouchEnd);
-
-    return () => {
-      bookElement.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mouseup', onMouseUp);
-      bookElement.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchend', onTouchEnd);
-      if(bookElement) {
-          bookElement.style.cursor = 'auto';
-      }
-    };
-  }, [goNextPage, goPrevPage]);
-
-  const handleStartEditing = (pageNumber: number) => {
-    setEditingPage(pageNumber);
-    setEditingTitle(pages[pageNumber - 1]?.title || '');
-  };
-
-  const handleCancelEditing = () => {
-    setEditingPage(null);
-    setEditingTitle('');
-  };
-
-  const handleSaveTitle = () => {
-    if (editingPage === null) return;
-    onTitleUpdate(editingPage - 1, editingTitle);
-    setEditingPage(null);
-    setEditingTitle('');
-  };
-
-  const handleDeletePage = (pageIndex: number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa trang này không? Thao tác này không thể hoàn tác.')) {
-      onPageDelete(pageIndex);
-    }
-  };
-
-  const getPageIndicatorText = () => {
-    if (pages.length === 0) return 'Sách trống';
-    if (currentPage === 0) return 'Mục lục';
-    if (currentPage > pages.length) return 'Hoàn thành';
-    return `Trang ${currentPage} / ${pages.length}`;
-  };
-
-
+const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode, number?: number }>((props, ref) => {
   return (
-    <div className="flex flex-col items-center">
-      <div
-        ref={bookContainerRef}
-        className="w-full max-w-[90vw] md:max-w-lg flex justify-center items-center"
-        style={{ perspective: '2000px', cursor: 'grab' }}
-      >
-        <div 
-          className="relative w-full aspect-[210/297]"
-          style={{ transformStyle: 'preserve-3d' }}
-        >
-          {Array.from({ length: totalPages }).map((_, index) => {
-            const actualPageIndex = index - 1;
-            return (
-            <div
-              key={index}
-              className={`absolute top-0 left-0 w-full h-full transition-transform duration-700 ease-in-out`}
-              style={{
-                transformOrigin: 'left',
-                transformStyle: 'preserve-3d',
-                transform: index < currentPage ? 'rotateY(-180deg)' : 'rotateY(0deg)',
-                zIndex: index < currentPage ? index + 1 : totalPages - index,
-              }}
-            >
-              <div className="absolute top-0 left-0 w-full h-full bg-white shadow-lg flex items-center justify-center overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 p-4 relative">
-                  {index > 0 && pages[actualPageIndex] && (
-                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/50 to-transparent z-10 text-white"
-                      // Prevent interactions from bubbling up to the drag handler
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                    >
-                      {editingPage === index ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveTitle();
-                              if (e.key === 'Escape') handleCancelEditing();
-                            }}
-                            className="w-full bg-transparent border-b-2 border-white/70 focus:border-white focus:outline-none text-sm p-1"
-                            autoFocus
-                          />
-                          <button onClick={handleSaveTitle} className="p-1 rounded-full hover:bg-white/20 transition-colors"><CheckIcon className="w-5 h-5"/></button>
-                          <button onClick={handleCancelEditing} className="p-1 rounded-full hover:bg-white/20 transition-colors"><XMarkIcon className="w-5 h-5"/></button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2 min-h-[34px]">
-                          <p className="text-sm font-medium truncate">{pages[actualPageIndex]?.title || 'Chưa có tiêu đề'}</p>
-                          <div className="flex items-center">
-                            <button onClick={() => handleStartEditing(index)} className="p-1 rounded-full hover:bg-white/20 transition-colors" aria-label="Chỉnh sửa tiêu đề"><PencilIcon className="w-5 h-5"/></button>
-                            <button onClick={() => handleDeletePage(actualPageIndex)} className="p-1 rounded-full hover:bg-white/20 transition-colors text-red-300 hover:text-red-500" aria-label="Xóa trang"><TrashIcon className="w-5 h-5"/></button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {index === 0 ? (
-                    <div className="w-full h-full overflow-y-auto p-4">
-                      <h2 className="text-2xl font-bold text-center mb-6 border-b pb-2">Mục lục</h2>
-                      <ul className="space-y-3">
-                        {pages
-                          .map((page, pageIndex) => ({ page, originalIndex: pageIndex }))
-                          .filter(({ page }) => page.title && page.title.trim() !== '')
-                          .map(({ page, originalIndex }) => (
-                            <li key={originalIndex}>
-                              <button 
-                                onClick={() => jumpToPage(originalIndex + 1)} 
-                                className="w-full text-left text-gray-700 hover:text-blue-600 hover:underline transition-colors flex justify-between"
-                              >
-                                <span>{page.title}</span>
-                                <span>Trang {originalIndex + 1}</span>
-                              </button>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    pages[actualPageIndex] && <img 
-                      src={pages[actualPageIndex].imageUrl} 
-                      alt={pages[actualPageIndex].title || `Trang ${index}`} 
-                      className="w-full h-full object-contain" 
-                    />
-                  )}
-                </div>
-              </div>
-              <div className="absolute top-0 left-0 w-full h-full bg-white shadow-lg" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                <div className="w-full h-full bg-gray-100"></div>
-              </div>
+    <div className="bg-white border flex justify-center items-center" ref={ref}>
+      <div className="relative w-full h-full">
+        {props.children}
+        {props.number && (
+            <div className="absolute bottom-2 right-2 text-sm bg-black bg-opacity-20 text-white rounded-full w-6 h-6 flex items-center justify-center">
+                {props.number}
             </div>
-          )})}
-        </div>
-      </div>
-      <div className="flex flex-col items-center space-y-4 mt-8">
-        <div className="flex items-center justify-center space-x-6">
-          <button
-            onClick={goPrevPage}
-            disabled={currentPage === 0}
-            className="p-3 rounded-full bg-white shadow-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            aria-label="Trang trước"
-          >
-              <ChevronLeftIcon className="w-6 h-6 text-gray-700"/>
-          </button>
-          
-          <div className="w-12 h-12 flex items-center justify-center">
-            {currentPage > 0 && currentPage <= pages.length && (
-              <button
-                onClick={() => jumpToPage(0)}
-                className="p-3 rounded-full bg-white shadow-md hover:bg-gray-100 transition"
-                aria-label="Về mục lục"
-              >
-                  <HomeIcon className="w-6 h-6 text-gray-700"/>
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={goNextPage}
-            disabled={currentPage === totalPages}
-            className="p-3 rounded-full bg-white shadow-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            aria-label="Trang sau"
-          >
-              <ChevronRightIcon className="w-6 h-6 text-gray-700"/>
-          </button>
-        </div>
-        <div className="text-center text-gray-700">
-          <p>{getPageIndicatorText()}</p>
-          <p className="text-xs text-gray-500">(Kéo để lật trang)</p>
-        </div>
+        )}
       </div>
     </div>
   );
+});
+
+const PageCover = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>((props, ref) => {
+  return (
+    <div className="bg-white border flex justify-center items-center" ref={ref}>
+        <div className="w-full h-full flex flex-col justify-center items-center bg-gray-200 p-4">
+            <h2 className="text-3xl font-bold text-gray-800 text-center">{props.children}</h2>
+        </div>
+    </div>
+  );
+});
+
+const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        if (!window.imageDB) {
+            console.error("imageDB không có trên đối tượng window.");
+            setError("Lỗi tải hình ảnh.");
+            return;
+        }
+
+        window.imageDB.getImage(imageId)
+            .then((url: string | null) => {
+                if (isMounted) {
+                    if (url) {
+                        setImageUrl(url);
+                    } else {
+                        setError("Không tìm thấy hình ảnh.");
+                    }
+                }
+            })
+            .catch((err: any) => {
+                console.error("Không thể lấy hình ảnh từ DB", err);
+                if (isMounted) {
+                    setError("Lỗi tải hình ảnh.");
+                }
+            });
+
+        return () => { isMounted = false; };
+    }, [imageId]);
+
+    if (error) {
+        return <div className="w-full h-full flex items-center justify-center bg-gray-100 text-red-500 p-4 text-center">{error}</div>;
+    }
+    if (!imageUrl) {
+        return <div className="w-full h-full flex items-center justify-center bg-gray-100">Đang tải...</div>;
+    }
+    return <img src={imageUrl} alt={alt} className="w-full h-full object-cover" />;
 };
+
+
+const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPageDelete }) => {
+  const book = useRef<any>(null);
+  const [currentPage, setCurrentPage] = useState(0); // This is the raw page number from the flipbook component
+  
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  
+  const ENTRIES_PER_TOC_PAGE = 12;
+
+  const tocPages = useMemo(() => {
+    const tocEntries = pages
+      .map((p, i) => ({ title: p.title, originalIndex: i }))
+      .filter(p => p.title.trim() !== '');
+      
+    if (tocEntries.length === 0) {
+      return [];
+    }
+
+    const tocPageChunks = [];
+    for (let i = 0; i < tocEntries.length; i += ENTRIES_PER_TOC_PAGE) {
+        tocPageChunks.push(tocEntries.slice(i, i + ENTRIES_PER_TOC_PAGE));
+    }
+    return tocPageChunks;
+  }, [pages]);
+
+  const numTocPages = tocPages.length;
+
+  const onPage = useCallback((e: any) => {
+    setCurrentPage(e.data);
+    setIsEditingTitle(false);
+  }, []);
+
+  const handleNextPage = () => book.current?.pageFlip().flipNext();
+  const handlePrevPage = () => book.current?.pageFlip().flipPrev();
+  
+  const handleTocLinkClick = (pageIndex: number) => {
+    // Correct navigation logic after empirical testing.
+    // There appears to be an offset in the library's page counting.
+    // Page structure: [Cover, ...TOCs, ...ContentPages, EndCover]
+    // The target content page `pages[pageIndex]` is located at an absolute
+    // position that requires adding 2 to the TOC and page indices.
+    const targetPage = numTocPages + pageIndex + 2;
+    book.current?.pageFlip().turnToPage(targetPage);
+  };
+
+
+  // Determine current page context
+  const isTocVisible = currentPage > 0 && currentPage <= numTocPages;
+  const isContentVisible = currentPage > numTocPages && currentPage <= numTocPages + pages.length;
+  const contentPageIndex = isContentVisible ? currentPage - numTocPages - 1 : -1;
+  const currentPageData = contentPageIndex !== -1 ? pages[contentPageIndex] : null;
+
+  const handleStartEditing = () => {
+    if (currentPageData) {
+      setEditedTitle(currentPageData.title || '');
+      setIsEditingTitle(true);
+    }
+  }
+
+  const handleTitleSave = () => {
+    if (currentPageData && contentPageIndex !== -1) {
+        onTitleUpdate(contentPageIndex, editedTitle);
+    }
+    setIsEditingTitle(false);
+  }
+  
+  const handleDelete = () => {
+    if (currentPageData && contentPageIndex !== -1) {
+        if (window.confirm(`Bạn có chắc muốn xóa trang ${contentPageIndex + 1} không?`)) {
+            onPageDelete(contentPageIndex);
+        }
+    }
+  }
+  
+  const getPageNumberDisplay = () => {
+    if (isContentVisible) {
+        return `Trang ${contentPageIndex + 1} / ${pages.length}`;
+    }
+    if (isTocVisible) {
+        return `Mục lục`;
+    }
+    return `Trang 0 / ${pages.length}`;
+  }
+
+
+  if (pages.length === 0) {
+    return (
+        <div className="w-full max-w-4xl bg-white p-8 rounded-lg shadow-lg text-center">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">Cuốn sách này trống</h2>
+            <p className="text-gray-500 mb-6">Không có trang nào trong cuốn sách này. Hãy quay lại và thêm trang.</p>
+        </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-5xl flex flex-col items-center">
+        {/* Main Content */}
+        <div className="w-full" style={{minHeight: "707px"}}>
+            <HTMLFlipBook
+                width={500}
+                height={707}
+                flippingTime={400}
+                size="stretch"
+                minWidth={315}
+                maxWidth={1000}
+                minHeight={420}
+                maxHeight={1414}
+                maxShadowOpacity={0.5}
+                showCover={true}
+                mobileScrollSupport={true}
+                onFlip={onPage}
+                className="mx-auto shadow-2xl"
+                ref={book}
+                // FIX: Add missing required props to satisfy the IProps interface from react-pageflip.
+                // This is likely due to a typing issue in the library where these props are not optional.
+                style={{}}
+                startPage={0}
+                drawShadow={true}
+                usePortrait={true}
+                startZIndex={0}
+                autoSize={true}
+                clickEventForward={true}
+                useMouseEvents={true}
+                swipeDistance={30}
+                showPageCorners={true}
+                disableFlipByClick={false}
+            >
+                <PageCover>{title}</PageCover>
+
+                {tocPages.map((chunk, chunkIndex) => (
+                    <Page key={`toc-${chunkIndex}`}>
+                        <div className="p-8 flex flex-col h-full">
+                            <h3 className="text-2xl font-bold mb-6 text-center border-b pb-3 text-gray-800">Mục lục</h3>
+                            <ul className="space-y-3 text-sm">
+                                {chunk.map(entry => (
+                                <li 
+                                    key={entry.originalIndex} 
+                                    className="flex justify-between items-baseline cursor-pointer group"
+                                    onClick={() => handleTocLinkClick(entry.originalIndex)}
+                                >
+                                    <span className="text-gray-700 group-hover:text-blue-600 truncate pr-2">{entry.title}</span>
+                                    <span className="flex-shrink-0 border-b border-dotted border-gray-300 flex-grow mx-2"></span>
+                                    <span className="font-mono text-gray-600 group-hover:text-blue-600">{entry.originalIndex + 1}</span>
+                                </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </Page>
+                ))}
+
+                {pages.map((page, index) => (
+                    <Page number={index + 1} key={page.imageId}>
+                        <PageImage imageId={page.imageId} alt={page.title || `Trang ${index + 1}`} />
+                    </Page>
+                ))}
+                <PageCover>Kết thúc</PageCover>
+            </HTMLFlipBook>
+        </div>
+        
+        <div className="w-full text-center flex items-center justify-center gap-2 group mt-4 min-h-[44px]">
+            {isContentVisible && currentPageData && (
+                isEditingTitle ? (
+                    <input 
+                        type="text"
+                        value={editedTitle}
+                        onChange={e => setEditedTitle(e.target.value)}
+                        onBlur={handleTitleSave}
+                        onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
+                        className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-1/2"
+                        autoFocus
+                    />
+                ) : (
+                    <>
+                        <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">
+                            {currentPageData.title || <span className="text-gray-400 font-normal italic">Chưa có tiêu đề</span>}
+                        </h2>
+                        <button onClick={handleStartEditing} className="p-2 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Edit title">
+                            <PencilSquareIcon className="w-5 h-5"/>
+                        </button>
+                    </>
+                )
+            )}
+             {isTocVisible && (
+                 <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">Mục lục</h2>
+             )}
+        </div>
+        
+        {/* Controls */}
+        <div className="flex justify-between items-center mt-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
+            <div className="w-[80px] flex items-center gap-1">
+                 <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+                    <TrashIcon className="w-6 h-6 text-red-500"/>
+                </button>
+            </div>
+            
+            <div className="flex items-center gap-4">
+                <button onClick={handlePrevPage} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Previous page">
+                    <ChevronLeftIcon className="w-6 h-6"/>
+                </button>
+                <span className="text-gray-700 font-medium text-sm w-28 text-center">{getPageNumberDisplay()}</span>
+                <button onClick={handleNextPage} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Next page">
+                    <ChevronRightIcon className="w-6 h-6"/>
+                </button>
+            </div>
+
+            <div className="w-[80px]"> {/* Spacer to balance flexbox */}
+            </div>
+        </div>
+    </div>
+  )
+}
 
 export default FlipBook;

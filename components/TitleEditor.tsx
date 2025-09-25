@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import type { BookPage } from '../App';
+
+// Define a local type for the component's state to decouple it from the global BookPage interface
+interface EditablePage {
+  imageUrl: string;
+  title: string;
+}
 
 interface TitleEditorProps {
   imageUrls: string[];
-  onConfirm: (pages: BookPage[]) => void;
+  onConfirm: (bookData: { title: string; pages: EditablePage[] }) => void;
+  onCancel: () => void;
 }
 
 const TrashIcon: React.FC<{className?: string}> = ({className}) => (
@@ -12,8 +18,16 @@ const TrashIcon: React.FC<{className?: string}> = ({className}) => (
   </svg>
 );
 
-const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm }) => {
-  const [editablePages, setEditablePages] = useState<BookPage[]>([]);
+const ArrowUturnLeftIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+    </svg>
+);
+
+const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCancel }) => {
+  const [editablePages, setEditablePages] = useState<EditablePage[]>([]);
+  const [bookTitle, setBookTitle] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setEditablePages(imageUrls.map(url => ({ imageUrl: url, title: '' })));
@@ -31,16 +45,21 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm }) => {
   };
 
   const handleSubmit = () => {
-    onConfirm(editablePages);
+    if (!bookTitle.trim()) {
+        setError("Vui lòng nhập tiêu đề cho cuốn sách.");
+        return;
+    }
+    setError(null);
+    onConfirm({ title: bookTitle, pages: editablePages });
   };
 
-  if (editablePages.length === 0) {
+  if (imageUrls.length > 0 && editablePages.length === 0) {
     return (
         <div className="w-full max-w-4xl bg-white p-8 rounded-lg shadow-lg text-center">
             <h2 className="text-2xl font-bold mb-4 text-gray-800">Không còn trang nào</h2>
             <p className="text-gray-500 mb-6">Bạn đã xóa tất cả các trang. Vui lòng quay lại và tải lên hình ảnh mới.</p>
              <button
-              onClick={() => onConfirm([])} // Effectively resets by confirming with empty array
+              onClick={onCancel}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105"
             >
               Bắt đầu lại
@@ -51,9 +70,26 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm }) => {
 
   return (
     <div className="w-full max-w-4xl bg-white p-8 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Đặt tên cho các trang sách</h2>
-      <p className="text-center text-gray-500 mb-6">Chỉ những trang có tiêu đề mới xuất hiện trong mục lục.</p>
-      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+      <h2 className="text-2xl font-bold mb-2 text-center text-gray-800">Hoàn thiện cuốn sách của bạn</h2>
+      <p className="text-center text-gray-500 mb-6">Đặt tiêu đề cho sách và cho từng trang (tùy chọn).</p>
+      
+      <div className="mb-6">
+        <label htmlFor="book-title" className="block text-lg font-medium text-gray-800 mb-2">
+            Tiêu đề sách <span className="text-red-500">*</span>
+        </label>
+        <input
+            id="book-title"
+            type="text"
+            value={bookTitle}
+            onChange={(e) => setBookTitle(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-lg"
+            placeholder="Ví dụ: Chuyến phiêu lưu của tôi, Sách dạy nấu ăn..."
+            required
+        />
+        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+      </div>
+
+      <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-4 border-t pt-6">
         {editablePages.map((page, index) => (
           <div key={page.imageUrl + index} className="flex items-center space-x-4 p-2 border rounded-md">
             <img src={page.imageUrl} alt={`Preview ${index + 1}`} className="w-20 h-20 object-cover rounded-md bg-gray-100 flex-shrink-0" />
@@ -67,7 +103,7 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm }) => {
                 value={page.title}
                 onChange={(e) => handleTitleChange(index, e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ví dụ: Giới thiệu, Chương 1..."
+                placeholder="Chỉ trang có tiêu đề mới hiện trong mục lục"
               />
             </div>
              <button 
@@ -80,7 +116,14 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm }) => {
           </div>
         ))}
       </div>
-      <div className="text-center mt-8">
+      <div className="flex justify-center items-center gap-4 mt-8">
+        <button
+          onClick={onCancel}
+          className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105"
+        >
+          <ArrowUturnLeftIcon className="w-5 h-5" />
+          Quay lại
+        </button>
         <button
           onClick={handleSubmit}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105"

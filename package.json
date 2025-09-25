@@ -1,5 +1,5 @@
 {
-  "name": "like-book",
+  "name": "likebook",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-pageflip": "^2.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
