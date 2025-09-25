@@ -35,7 +35,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload }) => {
             }
           };
           reader.onerror = reject;
-          reader.readAsDataURL(file);
+          // FIX: The `file` parameter was being inferred as `unknown`, causing a type error.
+          // Explicitly casting it to `Blob` ensures it matches the expected type for `readAsDataURL`.
+          reader.readAsDataURL(file as Blob);
         });
       });
       

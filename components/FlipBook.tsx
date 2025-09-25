@@ -74,49 +74,80 @@ const FlipBook: React.FC<FlipBookProps> = ({ pages, onTitleUpdate, onPageDelete 
     setCurrentPage(pageNumber);
   }
     
-  const dragStartX = useRef<number | null>(null);
+  const bookContainerRef = useRef<HTMLDivElement>(null);
+  const dragInfo = useRef<{ startX: number; side: 'left' | 'right' | null }>({ startX: 0, side: null });
 
   const handleDragStart = (clientX: number) => {
-    dragStartX.current = clientX;
+    const bookElement = bookContainerRef.current;
+    if (!bookElement) return;
+    const rect = bookElement.getBoundingClientRect();
+    const midpoint = rect.left + rect.width / 2;
+
+    if (clientX >= rect.left && clientX <= rect.right) {
+        if (clientX > midpoint) {
+            dragInfo.current = { startX: clientX, side: 'right' };
+        } else {
+            dragInfo.current = { startX: clientX, side: 'left' };
+        }
+    }
   };
 
   const handleDragEnd = (clientX: number) => {
-    if (dragStartX.current === null) return;
-    const deltaX = clientX - dragStartX.current;
-    if (deltaX < -20) { 
+    if (dragInfo.current.side === null) return;
+    
+    const deltaX = clientX - dragInfo.current.startX;
+    const swipeThreshold = 50;
+
+    // If drag started on the right side, a left swipe (negative delta) should go to the next page.
+    if (dragInfo.current.side === 'right' && deltaX < -swipeThreshold) { 
       goNextPage();
-    } else if (deltaX > 20) {
+    } 
+    // If drag started on the left side, a right swipe (positive delta) should go to the previous page.
+    else if (dragInfo.current.side === 'left' && deltaX > swipeThreshold) {
       goPrevPage();
     }
-    dragStartX.current = null;
+    dragInfo.current = { startX: 0, side: null };
   };
 
   useEffect(() => {
+    const bookElement = bookContainerRef.current;
+    if (!bookElement) return;
+
     const onMouseDown = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('button, input')) { return; }
+      if ((e.target as HTMLElement).closest('button, input, a')) { return; }
+      e.preventDefault();
       handleDragStart(e.clientX);
+      bookElement.style.cursor = 'grabbing';
     };
     const onMouseUp = (e: MouseEvent) => {
-      if (dragStartX.current !== null) { handleDragEnd(e.clientX); }
+      if (dragInfo.current.side !== null) { 
+        handleDragEnd(e.clientX); 
+      }
+      bookElement.style.cursor = 'grab';
     };
     const onTouchStart = (e: TouchEvent) => {
-      if ((e.target as HTMLElement).closest('button, input')) { return; }
+      if ((e.target as HTMLElement).closest('button, input, a')) { return; }
       handleDragStart(e.touches[0].clientX);
     };
     const onTouchEnd = (e: TouchEvent) => {
-      if (dragStartX.current !== null) { handleDragEnd(e.changedTouches[0].clientX); }
+      if (dragInfo.current.side !== null) { 
+        handleDragEnd(e.changedTouches[0].clientX); 
+      }
     };
-
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchend', onTouchEnd);
+    
+    bookElement.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+    bookElement.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
 
     return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchend', onTouchEnd);
+      bookElement.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      bookElement.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      if(bookElement) {
+          bookElement.style.cursor = 'auto';
+      }
     };
   }, [goNextPage, goPrevPage]);
 
@@ -154,8 +185,9 @@ const FlipBook: React.FC<FlipBookProps> = ({ pages, onTitleUpdate, onPageDelete 
   return (
     <div className="flex flex-col items-center">
       <div
+        ref={bookContainerRef}
         className="w-full max-w-[90vw] md:max-w-lg flex justify-center items-center"
-        style={{ perspective: '2000px' }}
+        style={{ perspective: '2000px', cursor: 'grab' }}
       >
         <div 
           className="relative w-full aspect-[210/297]"
