@@ -8,6 +8,7 @@ interface FlipBookProps {
   onTitleUpdate: (pageIndex: number, newTitle: string) => void;
   onPageDelete: (pageIndex: number) => void;
   onGoToDashboard: () => void;
+  onAddPages: () => void;
 }
 
 // Icons
@@ -29,6 +30,16 @@ const ChevronLeftIcon: React.FC<{className?: string}> = ({className}) => (
 const ChevronRightIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+);
+const ListBulletIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    </svg>
+);
+const PlusCircleIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
 );
 
@@ -57,6 +68,37 @@ const PageCover = React.forwardRef<HTMLDivElement, { children: React.ReactNode }
     </div>
   );
 });
+
+const CoverWithTOC = React.forwardRef<HTMLDivElement, { title: string, tocEntries: {title: string, originalIndex: number}[], onLinkClick: (index: number) => void }>((props, ref) => {
+    return (
+        <div className="bg-white border flex justify-center items-center" ref={ref} data-density="hard">
+            <div className="w-full h-full flex flex-col justify-start items-center bg-gray-200 p-8 overflow-y-auto">
+                <h2 className="text-3xl font-bold text-gray-800 text-center mb-8 pb-4 border-b-2 border-gray-400 w-full flex-shrink-0">{props.title}</h2>
+                {props.tocEntries.length > 0 ? (
+                    <>
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700 flex-shrink-0">Mục lục</h3>
+                        <ul className="space-y-2 text-sm w-full">
+                            {props.tocEntries.map(entry => (
+                                <li
+                                    key={entry.originalIndex}
+                                    className="flex justify-between items-baseline cursor-pointer group"
+                                    onClick={() => props.onLinkClick(entry.originalIndex)}
+                                >
+                                    <span className="text-gray-700 group-hover:text-blue-600 truncate pr-2">{entry.title}</span>
+                                    <span className="flex-shrink-0 border-b border-dotted border-gray-300 flex-grow mx-2"></span>
+                                    <span className="font-mono text-gray-600 group-hover:text-blue-600">{entry.originalIndex + 1}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                ) : (
+                    <p className="text-gray-500 mt-8">Cuốn sách này không có mục lục.</p>
+                )}
+            </div>
+        </div>
+    );
+});
+
 
 const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt }) => {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -100,32 +142,18 @@ const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt })
 };
 
 
-const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPageDelete }) => {
+const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPageDelete, onAddPages }) => {
   const book = useRef<any>(null);
   const [currentPage, setCurrentPage] = useState(0); // This is the raw page number from the flipbook component
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
-  
-  const ENTRIES_PER_TOC_PAGE = 12;
 
-  const tocPages = useMemo(() => {
-    const tocEntries = pages
+  const tocEntries = useMemo(() => {
+    return pages
       .map((p, i) => ({ title: p.title, originalIndex: i }))
       .filter(p => p.title.trim() !== '');
-      
-    if (tocEntries.length === 0) {
-      return [];
-    }
-
-    const tocPageChunks = [];
-    for (let i = 0; i < tocEntries.length; i += ENTRIES_PER_TOC_PAGE) {
-        tocPageChunks.push(tocEntries.slice(i, i + ENTRIES_PER_TOC_PAGE));
-    }
-    return tocPageChunks;
   }, [pages]);
-
-  const numTocPages = tocPages.length;
 
   const onPage = useCallback((e: any) => {
     setCurrentPage(e.data);
@@ -136,20 +164,25 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   const handlePrevPage = () => book.current?.pageFlip().flipPrev();
   
   const handleTocLinkClick = (pageIndex: number) => {
-    // Correct navigation logic after empirical testing.
-    // There appears to be an offset in the library's page counting.
-    // Page structure: [Cover, ...TOCs, ...ContentPages, EndCover]
-    // The target content page `pages[pageIndex]` is located at an absolute
-    // position that requires adding 2 to the TOC and page indices.
-    const targetPage = numTocPages + pageIndex + 2;
-    book.current?.pageFlip().turnToPage(targetPage);
+    // Có một sự không nhất quán trong thư viện lật trang:
+    // - `turnToPage(0)` đi đến trang bìa (trang 0), hoạt động đúng.
+    // - `turnToPage(N)` với N > 0 dường như đi đến trang vật lý N+1.
+    // Để điều hướng đến trang nội dung `pages[pageIndex]` (là trang vật lý `pageIndex + 1`),
+    // chúng ta cần gọi `turnToPage` với giá trị `pageIndex`.
+    book.current?.pageFlip().turnToPage(pageIndex);
+  };
+
+  const handleGoToToc = () => {
+    if (tocEntries.length > 0) {
+        // Mục lục giờ nằm trên trang bìa (trang 0).
+        book.current?.pageFlip().turnToPage(0);
+    }
   };
 
 
   // Determine current page context
-  const isTocVisible = currentPage > 0 && currentPage <= numTocPages;
-  const isContentVisible = currentPage > numTocPages && currentPage <= numTocPages + pages.length;
-  const contentPageIndex = isContentVisible ? currentPage - numTocPages - 1 : -1;
+  const isContentVisible = currentPage > 0 && currentPage <= pages.length;
+  const contentPageIndex = isContentVisible ? currentPage - 1 : -1;
   const currentPageData = contentPageIndex !== -1 ? pages[contentPageIndex] : null;
 
   const handleStartEditing = () => {
@@ -178,10 +211,11 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
     if (isContentVisible) {
         return `Trang ${contentPageIndex + 1} / ${pages.length}`;
     }
-    if (isTocVisible) {
-        return `Mục lục`;
+    if (currentPage === 0) {
+        return `Bìa & Mục lục`;
     }
-    return `Trang 0 / ${pages.length}`;
+    // Trường hợp này là bìa sau
+    return `Bìa sau`;
   }
 
 
@@ -213,8 +247,6 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 onFlip={onPage}
                 className="mx-auto shadow-2xl"
                 ref={book}
-                // FIX: Add missing required props to satisfy the IProps interface from react-pageflip.
-                // This is likely due to a typing issue in the library where these props are not optional.
                 style={{}}
                 startPage={0}
                 drawShadow={true}
@@ -227,34 +259,14 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 showPageCorners={true}
                 disableFlipByClick={false}
             >
-                <PageCover>{title}</PageCover>
-
-                {tocPages.map((chunk, chunkIndex) => (
-                    <Page key={`toc-${chunkIndex}`}>
-                        <div className="p-8 flex flex-col h-full">
-                            <h3 className="text-2xl font-bold mb-6 text-center border-b pb-3 text-gray-800">Mục lục</h3>
-                            <ul className="space-y-3 text-sm">
-                                {chunk.map(entry => (
-                                <li 
-                                    key={entry.originalIndex} 
-                                    className="flex justify-between items-baseline cursor-pointer group"
-                                    onClick={() => handleTocLinkClick(entry.originalIndex)}
-                                >
-                                    <span className="text-gray-700 group-hover:text-blue-600 truncate pr-2">{entry.title}</span>
-                                    <span className="flex-shrink-0 border-b border-dotted border-gray-300 flex-grow mx-2"></span>
-                                    <span className="font-mono text-gray-600 group-hover:text-blue-600">{entry.originalIndex + 1}</span>
-                                </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </Page>
-                ))}
+                <CoverWithTOC title={title} tocEntries={tocEntries} onLinkClick={handleTocLinkClick} />
 
                 {pages.map((page, index) => (
                     <Page number={index + 1} key={page.imageId}>
                         <PageImage imageId={page.imageId} alt={page.title || `Trang ${index + 1}`} />
                     </Page>
                 ))}
+                
                 <PageCover>Kết thúc</PageCover>
             </HTMLFlipBook>
         </div>
@@ -282,16 +294,19 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                     </>
                 )
             )}
-             {isTocVisible && (
-                 <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">Mục lục</h2>
+             {currentPage === 0 && (
+                 <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">Bìa & Mục lục</h2>
              )}
         </div>
         
         {/* Controls */}
         <div className="flex justify-between items-center mt-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
-            <div className="w-[80px] flex items-center gap-1">
+            <div className="w-[120px] flex justify-start items-center gap-1">
                  <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
                     <TrashIcon className="w-6 h-6 text-red-500"/>
+                </button>
+                <button onClick={onAddPages} className="p-2 rounded-full hover:bg-green-100 transition-colors" aria-label="Add pages" title="Thêm trang">
+                    <PlusCircleIcon className="w-6 h-6 text-green-500"/>
                 </button>
             </div>
             
@@ -305,7 +320,10 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 </button>
             </div>
 
-            <div className="w-[80px]"> {/* Spacer to balance flexbox */}
+            <div className="w-[120px] flex justify-end items-center">
+                <button onClick={handleGoToToc} disabled={tocEntries.length === 0 || currentPage === 0} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Về mục lục" title="Về mục lục">
+                    <ListBulletIcon className="w-6 h-6 text-gray-700"/>
+                </button>
             </div>
         </div>
     </div>

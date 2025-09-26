@@ -10,6 +10,8 @@ interface TitleEditorProps {
   imageUrls: string[];
   onConfirm: (bookData: { title: string; pages: EditablePage[] }) => void;
   onCancel: () => void;
+  bookTitle?: string;
+  isAddingPages?: boolean;
 }
 
 const TrashIcon: React.FC<{className?: string}> = ({className}) => (
@@ -24,9 +26,9 @@ const ArrowUturnLeftIcon: React.FC<{className?: string}> = ({className}) => (
     </svg>
 );
 
-const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCancel }) => {
+const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCancel, bookTitle: initialBookTitle = '', isAddingPages = false }) => {
   const [editablePages, setEditablePages] = useState<EditablePage[]>([]);
-  const [bookTitle, setBookTitle] = useState('');
+  const [bookTitle, setBookTitle] = useState(initialBookTitle);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCance
   };
 
   const handleSubmit = () => {
-    if (!bookTitle.trim()) {
+    if (!isAddingPages && !bookTitle.trim()) {
         setError("Vui lòng nhập tiêu đề cho cuốn sách.");
         return;
     }
@@ -70,21 +72,26 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCance
 
   return (
     <div className="w-full max-w-4xl bg-white p-8 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-2 text-center text-gray-800">Hoàn thiện cuốn sách của bạn</h2>
-      <p className="text-center text-gray-500 mb-6">Đặt tiêu đề cho sách và cho từng trang (tùy chọn).</p>
+      <h2 className="text-2xl font-bold mb-2 text-center text-gray-800">
+        {isAddingPages ? 'Thêm trang vào sách' : 'Hoàn thiện cuốn sách của bạn'}
+      </h2>
+      <p className="text-center text-gray-500 mb-6">
+        {isAddingPages ? 'Thêm tiêu đề cho các trang mới (tùy chọn).' : 'Đặt tiêu đề cho sách và cho từng trang (tùy chọn).'}
+      </p>
       
       <div className="mb-6">
         <label htmlFor="book-title" className="block text-lg font-medium text-gray-800 mb-2">
-            Tiêu đề sách <span className="text-red-500">*</span>
+            Tiêu đề sách {!isAddingPages && <span className="text-red-500">*</span>}
         </label>
         <input
             id="book-title"
             type="text"
             value={bookTitle}
             onChange={(e) => setBookTitle(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-lg"
+            className={`w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-lg ${isAddingPages ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             placeholder="Ví dụ: Chuyến phiêu lưu của tôi, Sách dạy nấu ăn..."
-            required
+            required={!isAddingPages}
+            disabled={isAddingPages}
         />
         {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
       </div>
@@ -128,7 +135,7 @@ const TitleEditor: React.FC<TitleEditorProps> = ({ imageUrls, onConfirm, onCance
           onClick={handleSubmit}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105"
         >
-          Tạo sách
+          {isAddingPages ? 'Thêm trang' : 'Tạo sách'}
         </button>
       </div>
     </div>
