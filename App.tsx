@@ -312,7 +312,7 @@ const AuthComponent: React.FC<{onLoginSuccess: (user: User) => void}> = ({ onLog
         {view === 'forgot' ? renderForgotPassword() : renderLoginSignup()}
       </div>
        <footer className="w-full text-center p-4 mt-8 text-gray-500 text-sm">
-        <p>Phát triển bởi Kỹ sư AI với chuyên môn React & Gemini.</p>
+        <p>Phát triển bởi 8BH2T</p>
       </footer>
     </div>
   );
@@ -661,7 +661,7 @@ const App: React.FC = () => {
       </main>
       
       <footer className="w-full text-center p-4 mt-8 text-gray-500 text-sm">
-        <p>Phát triển bởi Kỹ sư AI với chuyên môn React & Gemini.</p>
+        <p>Phát triển bởi 8BH2T</p>
       </footer>
     </div>
   );
