@@ -161,12 +161,39 @@ const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt })
 
 const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPageDelete, onAddPages }) => {
   const book = useRef<any>(null);
-  const [currentPage, setCurrentPage] = useState(0); // This is the raw page number from the flipbook component
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(0); 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
 
+  const [pageDimensions, setPageDimensions] = useState({ width: 500, height: 707 });
   const isSinglePageView = useMediaQuery('(max-width: 1024px)');
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (isSinglePageView && containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        // Leave 16px padding on each side for mobile
+        const newWidth = Math.max(100, containerWidth - 32); 
+        const newHeight = newWidth * 1.414; // Maintain A4 aspect ratio
+        setPageDimensions({ width: newWidth, height: newHeight });
+      } else {
+        // Desktop page dimensions (for a single page)
+        setPageDimensions({ width: 500, height: 707 });
+      }
+    };
+
+    // Use a timeout to avoid calculating on initial render with incorrect width
+    const timeoutId = setTimeout(handleResize, 10);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isSinglePageView]);
+
 
   const tocEntries = useMemo(() => {
     return pages
@@ -183,17 +210,11 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   const handlePrevPage = () => book.current?.pageFlip().flipPrev();
   
   const handleTocLinkClick = (pageIndex: number) => {
-    // Có một sự không nhất quán trong thư viện lật trang:
-    // - `turnToPage(0)` đi đến trang bìa (trang 0), hoạt động đúng.
-    // - `turnToPage(N)` với N > 0 dường như đi đến trang vật lý N+1.
-    // Để điều hướng đến trang nội dung `pages[pageIndex]` (là trang vật lý `pageIndex + 1`),
-    // chúng ta cần gọi `turnToPage` với giá trị `pageIndex`.
     book.current?.pageFlip().turnToPage(pageIndex);
   };
 
   const handleGoToToc = () => {
     if (tocEntries.length > 0) {
-        // Mục lục giờ nằm trên trang bìa (trang 0).
         book.current?.pageFlip().turnToPage(0);
     }
   };
@@ -233,7 +254,6 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
     if (currentPage === 0) {
         return `Bìa & Mục lục`;
     }
-    // Trường hợp này là bìa sau
     return `Bìa sau`;
   }
 
@@ -248,26 +268,25 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   }
 
   return (
-    <div className="w-full max-w-5xl flex flex-col items-center">
-        {/* Main Content */}
-        <div className={`w-full ${isSinglePageView ? 'max-w-[500px] mx-auto' : ''}`} style={{minHeight: "707px"}}>
+    <div ref={containerRef} className="w-full max-w-5xl flex flex-col items-center">
+        <div className="w-full flex justify-center items-start" style={{minHeight: `${pageDimensions.height + 20}px`}}>
             <HTMLFlipBook
-                key={isSinglePageView ? 'portrait' : 'landscape'}
-                width={500}
-                height={707}
+                key={isSinglePageView ? `p-${pageDimensions.width}` : `l-${pageDimensions.width}`}
+                style={{}}
+                width={pageDimensions.width}
+                height={pageDimensions.height}
+                minWidth={pageDimensions.width}
+                maxWidth={pageDimensions.width}
+                minHeight={pageDimensions.height}
+                maxHeight={pageDimensions.height}
                 flippingTime={400}
-                size="stretch"
-                minWidth={315}
-                maxWidth={1000}
-                minHeight={420}
-                maxHeight={1414}
+                size="fixed"
                 maxShadowOpacity={0.5}
                 showCover={true}
                 mobileScrollSupport={true}
                 onFlip={onPage}
-                className="mx-auto shadow-2xl"
+                className="shadow-2xl"
                 ref={book}
-                style={{}}
                 startPage={0}
                 drawShadow={true}
                 usePortrait={isSinglePageView}
@@ -277,8 +296,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 swipeDistance={30}
                 showPageCorners={true}
                 disableFlipByClick={false}
-                // FIX: Added required `autoSize` prop to the HTMLFlipBook component to resolve a TypeScript error.
-                autoSize={true}
+                autoSize={false}
             >
                 <CoverWithTOC title={title} tocEntries={tocEntries} onLinkClick={handleTocLinkClick} />
 
@@ -320,7 +338,6 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
              )}
         </div>
         
-        {/* Controls */}
         <div className="flex justify-between items-center mt-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
             <div className="w-[120px] flex justify-start items-center gap-1">
                  <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
