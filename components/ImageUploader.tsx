@@ -44,15 +44,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImagesUpload, onCancel 
           
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            // Use a higher scale for better quality
-            const viewport = page.getViewport({ scale: 1.5 });
+            
+            // Render at a resolution based on a target width for better quality, maintaining aspect ratio.
+            const targetWidth = 1000; // Based on the flipbook's maxWidth for high quality
+            const viewportDefaultScale = page.getViewport({ scale: 1 });
+            const scale = targetWidth / viewportDefaultScale.width;
+            const viewport = page.getViewport({ scale });
+
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             
-            await page.render({ canvasContext: context, viewport }).promise;
-            uploadedImageUrls.push(canvas.toDataURL('image/jpeg'));
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            // Using JPEG with quality 0.9 for a good balance of size and quality.
+            uploadedImageUrls.push(canvas.toDataURL('image/jpeg', 0.9));
           }
         } else if (file.type.startsWith('image/')) {
           const imageUrl = await new Promise<string>((resolve, reject) => {

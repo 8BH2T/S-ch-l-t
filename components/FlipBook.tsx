@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { BookPage } from '../App';
 import HTMLFlipBook from 'react-pageflip';
 
@@ -42,6 +42,23 @@ const PlusCircleIcon: React.FC<{className?: string}> = ({className}) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
 );
+
+const useMediaQuery = (query: string) => {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia(query);
+    const listener = (event: MediaQueryListEvent) => setMatches(event.matches);
+    
+    mediaQueryList.addEventListener('change', listener);
+    
+    return () => {
+      mediaQueryList.removeEventListener('change', listener);
+    };
+  }, [query]);
+
+  return matches;
+};
 
 
 const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode, number?: number }>((props, ref) => {
@@ -138,7 +155,7 @@ const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt })
     if (!imageUrl) {
         return <div className="w-full h-full flex items-center justify-center bg-gray-100">Đang tải...</div>;
     }
-    return <img src={imageUrl} alt={alt} className="w-full h-full object-cover" />;
+    return <img src={imageUrl} alt={alt} className="w-full h-full object-contain" />;
 };
 
 
@@ -148,6 +165,8 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+
+  const isSinglePageView = useMediaQuery('(max-width: 1024px)');
 
   const tocEntries = useMemo(() => {
     return pages
@@ -231,8 +250,9 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   return (
     <div className="w-full max-w-5xl flex flex-col items-center">
         {/* Main Content */}
-        <div className="w-full" style={{minHeight: "707px"}}>
+        <div className={`w-full ${isSinglePageView ? 'max-w-[500px] mx-auto' : ''}`} style={{minHeight: "707px"}}>
             <HTMLFlipBook
+                key={isSinglePageView ? 'portrait' : 'landscape'}
                 width={500}
                 height={707}
                 flippingTime={400}
@@ -250,14 +270,15 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 style={{}}
                 startPage={0}
                 drawShadow={true}
-                usePortrait={true}
+                usePortrait={isSinglePageView}
                 startZIndex={0}
-                autoSize={true}
                 clickEventForward={true}
                 useMouseEvents={true}
                 swipeDistance={30}
                 showPageCorners={true}
                 disableFlipByClick={false}
+                // FIX: Added required `autoSize` prop to the HTMLFlipBook component to resolve a TypeScript error.
+                autoSize={true}
             >
                 <CoverWithTOC title={title} tocEntries={tocEntries} onLinkClick={handleTocLinkClick} />
 
