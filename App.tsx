@@ -593,7 +593,7 @@ const App: React.FC = () => {
           return <ImageUploader onImagesUpload={handleImagesUpload} onCancel={handleCancelAddPages} />;
       }
       return (
-        <div className="w-full">
+        <div className="w-full h-full">
           <FlipBook 
             key={selectedBook.id} 
             title={selectedBook.title}
@@ -622,30 +622,27 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen w-full flex flex-col items-center justify-center p-4 font-sans antialiased">
-      <header className="w-full max-w-5xl mx-auto mb-6">
-        <div className="flex justify-between items-start">
+    <div className={`bg-gray-100 min-h-screen w-full flex flex-col font-sans antialiased ${!selectedBook ? 'p-4 items-center justify-center' : ''}`}>
+      <header className={`w-full max-w-5xl mx-auto ${selectedBook ? 'px-4 pt-4 mb-2' : 'mb-6'}`}>
+        <div className="flex justify-between items-center">
             <div>
               {selectedBook ? (
-                <>
-                  <button
-                    onClick={handleGoToDashboard}
-                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 mb-2 transition-colors"
-                  >
-                    <ArrowUturnLeftIcon className="w-5 h-5" />
-                    Quay về danh sách
-                  </button>
-                  <h1 className="text-4xl font-bold text-gray-800 tracking-tight">{selectedBook.title}</h1>
-                </>
+                <button
+                  onClick={handleGoToDashboard}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  <ArrowUturnLeftIcon className="w-5 h-5" />
+                  Quay về danh sách
+                </button>
               ) : (
                 <>
                   <h1 className="text-4xl font-bold text-gray-800 tracking-tight">Likebook</h1>
-                  <p className="text-gray-600 mt-2">Tạo và quản lý những cuốn sách lật kỹ thuật số của bạn.</p>
+                  <p className="text-gray-600 mt-2">thư viện sách của bạn</p>
                 </>
               )}
             </div>
             <div className="text-right flex-shrink-0 ml-4">
-                <p className="text-sm text-gray-700 truncate">Xin chào, {currentUser.email}</p>
+                <p className="text-sm text-gray-700 truncate">Xin chào, {currentUser.email.split('@')[0]}</p>
                 <button 
                   onClick={handleLogout}
                   className="text-sm text-red-600 hover:underline focus:outline-none"
@@ -656,7 +653,7 @@ const App: React.FC = () => {
         </div>
       </header>
       
-      <main className="w-full flex-grow flex items-center justify-center">
+      <main className="w-full flex-grow flex justify-center">
         {renderContent()}
       </main>
       

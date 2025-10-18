@@ -63,15 +63,15 @@ const useMediaQuery = (query: string) => {
 
 const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode, number?: number }>((props, ref) => {
   return (
-    <div className="bg-white border flex justify-center items-center" ref={ref}>
-      <div className="relative w-full h-full">
-        {props.children}
-        {props.number && (
-            <div className="absolute bottom-2 right-2 text-sm bg-black bg-opacity-20 text-white rounded-full w-6 h-6 flex items-center justify-center">
-                {props.number}
-            </div>
-        )}
-      </div>
+    <div className="bg-white border flex flex-col justify-start items-stretch text-center" ref={ref}>
+        <div className="relative w-full flex-grow">
+            {props.children}
+            {props.number && (
+                <div className="absolute bottom-2 right-2 text-sm bg-black bg-opacity-20 text-white rounded-full w-6 h-6 flex items-center justify-center">
+                    {props.number}
+                </div>
+            )}
+        </div>
     </div>
   );
 });
@@ -168,24 +168,34 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   const [editedTitle, setEditedTitle] = useState('');
 
   const [pageDimensions, setPageDimensions] = useState({ width: 500, height: 707 });
-  const isSinglePageView = useMediaQuery('(max-width: 1024px)');
+  const isSinglePageView = useMediaQuery('(orientation: portrait)');
 
   useEffect(() => {
     const handleResize = () => {
-      if (isSinglePageView && containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        // Leave 16px padding on each side for mobile
-        const newWidth = Math.max(100, containerWidth - 32); 
-        const newHeight = newWidth * 1.414; // Maintain A4 aspect ratio
-        setPageDimensions({ width: newWidth, height: newHeight });
+      if (!containerRef.current) return;
+
+      const containerWidth = containerRef.current.clientWidth;
+      if (containerWidth === 0) return;
+
+      const aspectRatio = 1.4142; // Tỷ lệ khổ giấy A4 (cao/rộng)
+
+      let newWidth: number;
+
+      if (isSinglePageView) {
+        // Chế độ xem một trang: Chiều rộng trang bằng chiều rộng vùng chứa.
+        newWidth = containerWidth;
       } else {
-        // Desktop page dimensions (for a single page)
-        setPageDimensions({ width: 500, height: 707 });
+        // Chế độ xem hai trang: Chiều rộng một trang bằng một nửa chiều rộng vùng chứa.
+        newWidth = containerWidth / 2;
       }
+
+      const newHeight = newWidth * aspectRatio;
+
+      setPageDimensions({ width: newWidth, height: newHeight });
     };
 
-    // Use a timeout to avoid calculating on initial render with incorrect width
-    const timeoutId = setTimeout(handleResize, 10);
+    // Tính toán lại khi tải, thay đổi kích thước và thay đổi hướng màn hình
+    const timeoutId = setTimeout(handleResize, 100);
     window.addEventListener('resize', handleResize);
 
     return () => {
@@ -210,7 +220,15 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   const handlePrevPage = () => book.current?.pageFlip().flipPrev();
   
   const handleTocLinkClick = (pageIndex: number) => {
-    book.current?.pageFlip().turnToPage(pageIndex);
+    // `pageIndex` là chỉ số 0-based từ mảng `pages`.
+    // Sách lật có một trang bìa (chỉ số 0), vì vậy trang nội dung đầu tiên
+    // (`pages[0]`) thực sự là trang thứ hai trong sách lật (chỉ số 1).
+    // Do đó, chúng ta cần lật đến `pageIndex + 1`.
+    const targetFlipbookPage = pageIndex + 1;
+    
+    if (book.current) {
+        book.current.pageFlip().turnToPage(targetFlipbookPage);
+    }
   };
 
   const handleGoToToc = () => {
@@ -248,14 +266,47 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   }
   
   const getPageNumberDisplay = () => {
-    if (isContentVisible) {
-        return `Trang ${contentPageIndex + 1} / ${pages.length}`;
-    }
+    const totalContentPages = pages.length;
+
+    // `currentPage` là chỉ số trang (0-indexed) từ thư viện flipbook.
+    // Trang 0: Bìa & Mục lục
+    // Trang 1 đến totalContentPages: Các trang nội dung
+    // Trang totalContentPages + 1: Bìa sau
+
     if (currentPage === 0) {
-        return `Bìa & Mục lục`;
+      return `Bìa & Mục lục`;
     }
-    return `Bìa sau`;
-  }
+    
+    // Trang sau trang nội dung cuối cùng là bìa sau.
+    if (currentPage > totalContentPages) {
+      return `Bìa sau`;
+    }
+
+    // Đang ở một trang nội dung.
+    if (isSinglePageView) {
+      // Chế độ dọc, hiển thị một trang.
+      return `Trang ${currentPage} / ${totalContentPages}`;
+    } else {
+      // Chế độ ngang, hiển thị hai trang.
+      
+      // Trường hợp đặc biệt: hiển thị Mục lục (trang 0) và trang nội dung 1.
+      if (currentPage === 1) {
+          return `Trang 1 / ${totalContentPages}`;
+      }
+      
+      // Một cặp trang luôn gồm trang chẵn bên trái và lẻ bên phải.
+      const leftPageInSpread = currentPage % 2 === 0 ? currentPage : currentPage - 1;
+      const rightPageInSpread = leftPageInSpread + 1;
+
+      // Trường hợp đặc biệt: hiển thị trang nội dung cuối cùng cạnh bìa sau.
+      if (rightPageInSpread > totalContentPages) {
+          return `Trang ${totalContentPages} / ${totalContentPages}`;
+      }
+
+      // Trường hợp thông thường: một cặp hai trang nội dung.
+      return `Trang ${leftPageInSpread}-${rightPageInSpread} / ${totalContentPages}`;
+    }
+  };
 
 
   if (pages.length === 0) {
@@ -268,8 +319,27 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   }
 
   return (
-    <div ref={containerRef} className="w-full max-w-5xl flex flex-col items-center">
-        <div className="w-full flex justify-center items-start" style={{minHeight: `${pageDimensions.height + 20}px`}}>
+    <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-start overflow-y-auto">
+        {/* Page Title Display */}
+        <div className="w-full max-w-md text-center flex items-center justify-center gap-2 group min-h-[44px] my-2">
+            {isContentVisible && currentPageData ? (
+                isEditingTitle ? (
+                    <input 
+                        type="text"
+                        value={editedTitle}
+                        onChange={e => setEditedTitle(e.target.value)}
+                        onBlur={handleTitleSave}
+                        onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
+                        className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-1/2"
+                        autoFocus
+                    />
+                ) : (
+                    <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
+                )
+            ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Bìa & Mục lục</h2> )}
+        </div>
+        
+        <div className="flex justify-center items-center" style={{minHeight: `${pageDimensions.height}px`}}>
             <HTMLFlipBook
                 key={isSinglePageView ? `p-${pageDimensions.width}` : `l-${pageDimensions.width}`}
                 style={{}}
@@ -279,7 +349,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 maxWidth={pageDimensions.width}
                 minHeight={pageDimensions.height}
                 maxHeight={pageDimensions.height}
-                flippingTime={400}
+                flippingTime={300}
                 size="fixed"
                 maxShadowOpacity={0.5}
                 showCover={true}
@@ -310,37 +380,12 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
             </HTMLFlipBook>
         </div>
         
-        <div className="w-full text-center flex items-center justify-center gap-2 group mt-4 min-h-[44px]">
-            {isContentVisible && currentPageData && (
-                isEditingTitle ? (
-                    <input 
-                        type="text"
-                        value={editedTitle}
-                        onChange={e => setEditedTitle(e.target.value)}
-                        onBlur={handleTitleSave}
-                        onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
-                        className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-1/2"
-                        autoFocus
-                    />
-                ) : (
-                    <>
-                        <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">
-                            {currentPageData.title || <span className="text-gray-400 font-normal italic">Chưa có tiêu đề</span>}
-                        </h2>
-                        <button onClick={handleStartEditing} className="p-2 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Edit title">
-                            <PencilSquareIcon className="w-5 h-5"/>
-                        </button>
-                    </>
-                )
-            )}
-             {currentPage === 0 && (
-                 <h2 className="text-xl font-bold text-gray-800 py-1 border-b-2 border-transparent">Bìa & Mục lục</h2>
-             )}
-        </div>
-        
-        <div className="flex justify-between items-center mt-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
-            <div className="w-[120px] flex justify-start items-center gap-1">
-                 <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+        <div className="flex justify-between items-center mt-4 mb-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
+            <div className="flex justify-start items-center gap-1">
+                <button onClick={handleStartEditing} disabled={!currentPageData} className="p-2 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
+                    <PencilSquareIcon className="w-6 h-6 text-blue-500"/>
+                </button>
+                <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
                     <TrashIcon className="w-6 h-6 text-red-500"/>
                 </button>
                 <button onClick={onAddPages} className="p-2 rounded-full hover:bg-green-100 transition-colors" aria-label="Add pages" title="Thêm trang">
