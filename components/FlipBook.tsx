@@ -61,7 +61,7 @@ const useMediaQuery = (query: string) => {
 };
 
 
-const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode, number?: number }>((props, ref) => {
+const Page = React.forwardRef<HTMLDivElement, { children?: React.ReactNode, number?: number }>((props, ref) => {
   return (
     <div className="bg-white border flex flex-col justify-start items-stretch text-center" ref={ref}>
         <div className="relative w-full flex-grow">
@@ -86,28 +86,25 @@ const PageCover = React.forwardRef<HTMLDivElement, { children: React.ReactNode }
   );
 });
 
-const CoverWithTOC = React.forwardRef<HTMLDivElement, { title: string, tocEntries: {title: string, originalIndex: number}[], onLinkClick: (index: number) => void }>((props, ref) => {
+const TOCPage = React.forwardRef<HTMLDivElement, { tocEntries: {title: string, originalIndex: number}[], onLinkClick: (index: number) => void }>((props, ref) => {
     return (
-        <div className="bg-white border flex justify-center items-center" ref={ref} data-density="hard">
-            <div className="w-full h-full flex flex-col justify-start items-center bg-gray-200 p-8 overflow-y-auto">
-                <h2 className="text-3xl font-bold text-gray-800 text-center mb-8 pb-4 border-b-2 border-gray-400 w-full flex-shrink-0">{props.title}</h2>
+        <div className="bg-white border flex justify-center items-center" ref={ref}>
+            <div className="w-full h-full flex flex-col justify-start items-center bg-gray-100 p-8 overflow-y-auto">
+                <h3 className="text-xl font-semibold mb-4 text-gray-700 flex-shrink-0 w-full text-center pb-4 border-b-2 border-gray-300">Mục lục</h3>
                 {props.tocEntries.length > 0 ? (
-                    <>
-                        <h3 className="text-xl font-semibold mb-4 text-gray-700 flex-shrink-0">Mục lục</h3>
-                        <ul className="space-y-2 text-sm w-full">
-                            {props.tocEntries.map(entry => (
-                                <li
-                                    key={entry.originalIndex}
-                                    className="flex justify-between items-baseline cursor-pointer group"
-                                    onClick={() => props.onLinkClick(entry.originalIndex)}
-                                >
-                                    <span className="text-gray-700 group-hover:text-blue-600 truncate pr-2">{entry.title}</span>
-                                    <span className="flex-shrink-0 border-b border-dotted border-gray-300 flex-grow mx-2"></span>
-                                    <span className="font-mono text-gray-600 group-hover:text-blue-600">{entry.originalIndex + 1}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </>
+                    <ul className="space-y-2 text-sm w-full">
+                        {props.tocEntries.map(entry => (
+                            <li
+                                key={entry.originalIndex}
+                                className="flex justify-between items-baseline cursor-pointer group"
+                                onClick={() => props.onLinkClick(entry.originalIndex)}
+                            >
+                                <span className="text-gray-700 group-hover:text-blue-600 truncate pr-2">{entry.title}</span>
+                                <span className="flex-shrink-0 border-b border-dotted border-gray-300 flex-grow mx-2"></span>
+                                <span className="font-mono text-gray-600 group-hover:text-blue-600">{entry.originalIndex + 1}</span>
+                            </li>
+                        ))}
+                    </ul>
                 ) : (
                     <p className="text-gray-500 mt-8">Cuốn sách này không có mục lục.</p>
                 )}
@@ -159,11 +156,12 @@ const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt })
 };
 
 
-const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPageDelete, onAddPages }) => {
+const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, onPageDelete, onAddPages }) => {
   const book = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(0); 
+  const tocTargetPage = useRef<number | null>(null);
   
+  const [currentPage, setCurrentPage] = useState(0); 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
 
@@ -182,10 +180,8 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
       let newWidth: number;
 
       if (isSinglePageView) {
-        // Chế độ xem một trang: Chiều rộng trang bằng chiều rộng vùng chứa.
         newWidth = containerWidth;
       } else {
-        // Chế độ xem hai trang: Chiều rộng một trang bằng một nửa chiều rộng vùng chứa.
         newWidth = containerWidth / 2;
       }
 
@@ -194,7 +190,6 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
       setPageDimensions({ width: newWidth, height: newHeight });
     };
 
-    // Tính toán lại khi tải, thay đổi kích thước và thay đổi hướng màn hình
     const timeoutId = setTimeout(handleResize, 100);
     window.addEventListener('resize', handleResize);
 
@@ -212,34 +207,45 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
   }, [pages]);
 
   const onPage = useCallback((e: any) => {
-    setCurrentPage(e.data);
+    if (tocTargetPage.current !== null) {
+        setCurrentPage(tocTargetPage.current);
+        tocTargetPage.current = null;
+    } else {
+        setCurrentPage(e.data);
+    }
     setIsEditingTitle(false);
   }, []);
 
   const handleNextPage = () => book.current?.pageFlip().flipNext();
   const handlePrevPage = () => book.current?.pageFlip().flipPrev();
   
-  const handleTocLinkClick = (pageIndex: number) => {
-    // `pageIndex` là chỉ số 0-based từ mảng `pages`.
-    // Sách lật có một trang bìa (chỉ số 0), vì vậy trang nội dung đầu tiên
-    // (`pages[0]`) thực sự là trang thứ hai trong sách lật (chỉ số 1).
-    // Do đó, chúng ta cần lật đến `pageIndex + 1`.
-    const targetFlipbookPage = pageIndex + 1;
-    
-    if (book.current) {
-        book.current.pageFlip().turnToPage(targetFlipbookPage);
+  const handleTocLinkClick = (pageIndexOfClickedLink: number) => {
+    if (!book.current) return;
+
+    const destinationContentIndex = pageIndexOfClickedLink - 1;
+
+    if (destinationContentIndex < 0) {
+        // User clicked "Trang 1", go to TOC. TOC is now book page 0.
+        tocTargetPage.current = 0;
+        book.current.pageFlip().turnToPage(0);
+    } else {
+        // Destination content page is at index `destinationContentIndex`.
+        // Its book page number is `destinationContentIndex + 1`.
+        // Structure: TOC(0), Content0(1), Content1(2), ...
+        const destinationBookPageNumber = destinationContentIndex + 1;
+        tocTargetPage.current = destinationBookPageNumber;
+        book.current.pageFlip().turnToPage(destinationBookPageNumber);
     }
+    setIsEditingTitle(false);
   };
 
   const handleGoToToc = () => {
-    if (tocEntries.length > 0) {
-        book.current?.pageFlip().turnToPage(0);
-    }
+    book.current?.pageFlip().turnToPage(0);
+    setCurrentPage(0);
   };
 
-
-  // Determine current page context
-  const isContentVisible = currentPage > 0 && currentPage <= pages.length;
+  // New book structure: TOC(0), ContentPage0(1), ContentPage1(2), etc.
+  const isContentVisible = currentPage >= 1 && currentPage <= pages.length;
   const contentPageIndex = isContentVisible ? currentPage - 1 : -1;
   const currentPageData = contentPageIndex !== -1 ? pages[contentPageIndex] : null;
 
@@ -265,48 +271,38 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
     }
   }
   
-  const getPageNumberDisplay = () => {
+    const getPageNumberDisplay = useCallback(() => {
     const totalContentPages = pages.length;
+    // Structure: 0=TOC, 1..N=Content, N+1=BackCover
 
-    // `currentPage` là chỉ số trang (0-indexed) từ thư viện flipbook.
-    // Trang 0: Bìa & Mục lục
-    // Trang 1 đến totalContentPages: Các trang nội dung
-    // Trang totalContentPages + 1: Bìa sau
+    const getLabel = (bookIndex: number) => {
+        if (bookIndex === 0) return 'Mục lục';
+        if (bookIndex > 0 && bookIndex <= totalContentPages) return `Trang ${bookIndex}`;
+        if (bookIndex === totalContentPages + 1) return 'Bìa sau';
+        return '';
+    };
 
-    if (currentPage === 0) {
-      return `Bìa & Mục lục`;
-    }
-    
-    // Trang sau trang nội dung cuối cùng là bìa sau.
-    if (currentPage > totalContentPages) {
-      return `Bìa sau`;
-    }
-
-    // Đang ở một trang nội dung.
     if (isSinglePageView) {
-      // Chế độ dọc, hiển thị một trang.
-      return `Trang ${currentPage} / ${totalContentPages}`;
-    } else {
-      // Chế độ ngang, hiển thị hai trang.
-      
-      // Trường hợp đặc biệt: hiển thị Mục lục (trang 0) và trang nội dung 1.
-      if (currentPage === 1) {
-          return `Trang 1 / ${totalContentPages}`;
-      }
-      
-      // Một cặp trang luôn gồm trang chẵn bên trái và lẻ bên phải.
-      const leftPageInSpread = currentPage % 2 === 0 ? currentPage : currentPage - 1;
-      const rightPageInSpread = leftPageInSpread + 1;
+      const label = getLabel(currentPage);
+      return (currentPage > 0 && currentPage <= totalContentPages)
+        ? `${label} / ${totalContentPages}`
+        : label;
+    } else { // Landscape view
+      const leftIdx = (currentPage % 2 === 0) ? currentPage : currentPage - 1;
+      const rightIdx = leftIdx + 1;
 
-      // Trường hợp đặc biệt: hiển thị trang nội dung cuối cùng cạnh bìa sau.
-      if (rightPageInSpread > totalContentPages) {
-          return `Trang ${totalContentPages} / ${totalContentPages}`;
+      const leftLabel = getLabel(leftIdx);
+      const rightLabel = getLabel(rightIdx);
+      
+      if (leftLabel && rightLabel) {
+        return `${leftLabel} - ${rightLabel}`;
       }
-
-      // Trường hợp thông thường: một cặp hai trang nội dung.
-      return `Trang ${leftPageInSpread}-${rightPageInSpread} / ${totalContentPages}`;
+      if (leftLabel) {
+        return leftLabel;
+      }
+      return '';
     }
-  };
+  }, [currentPage, pages.length, isSinglePageView]);
 
 
   if (pages.length === 0) {
@@ -320,7 +316,6 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
 
   return (
     <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-start overflow-y-auto">
-        {/* Page Title Display */}
         <div className="w-full max-w-md text-center flex items-center justify-center gap-2 group min-h-[44px] my-2">
             {isContentVisible && currentPageData ? (
                 isEditingTitle ? (
@@ -336,7 +331,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 ) : (
                     <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
                 )
-            ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Bìa & Mục lục</h2> )}
+            ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Mục lục</h2> )}
         </div>
         
         <div className="flex justify-center items-center" style={{minHeight: `${pageDimensions.height}px`}}>
@@ -352,7 +347,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 flippingTime={300}
                 size="fixed"
                 maxShadowOpacity={0.5}
-                showCover={true}
+                showCover={false}
                 mobileScrollSupport={true}
                 onFlip={onPage}
                 className="shadow-2xl"
@@ -368,7 +363,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
                 disableFlipByClick={false}
                 autoSize={false}
             >
-                <CoverWithTOC title={title} tocEntries={tocEntries} onLinkClick={handleTocLinkClick} />
+                <TOCPage tocEntries={tocEntries} onLinkClick={handleTocLinkClick} />
 
                 {pages.map((page, index) => (
                     <Page number={index + 1} key={page.imageId}>
@@ -404,7 +399,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages, onTitleUpdate, onPage
             </div>
 
             <div className="w-[120px] flex justify-end items-center">
-                <button onClick={handleGoToToc} disabled={tocEntries.length === 0 || currentPage === 0} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Về mục lục" title="Về mục lục">
+                <button onClick={handleGoToToc} disabled={currentPage === 0} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Về mục lục" title="Về mục lục">
                     <ListBulletIcon className="w-6 h-6 text-gray-700"/>
                 </button>
             </div>
