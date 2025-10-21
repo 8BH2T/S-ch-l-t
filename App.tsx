@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ImageUploader from './components/ImageUploader';
 import FlipBook from './components/FlipBook';
@@ -415,6 +416,9 @@ const App: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isAddingPages, setIsAddingPages] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [insertionIndex, setInsertionIndex] = useState<number | null>(null);
+  const [startPage, setStartPage] = useState(0);
+  const [flipbookKey, setFlipbookKey] = useState(1);
 
   useEffect(() => {
     window.imageDB.init().catch(err => console.error("Không thể khởi tạo cơ sở dữ liệu hình ảnh", err));
@@ -436,6 +440,8 @@ const App: React.FC = () => {
     setIsCreating(false);
     setIsAddingPages(false);
     setUploadedImages([]);
+    setInsertionIndex(null);
+    setStartPage(0);
   };
   
   const handleImagesUpload = (imageUrls: string[]) => {
@@ -466,14 +472,16 @@ const App: React.FC = () => {
       setUploadedImages([]);
       setIsCreating(false);
       setSelectedBook(newBook);
+      setStartPage(0);
+      setFlipbookKey(prev => prev + 1);
     } catch(err) {
       console.error("Không thể tạo sách:", err);
       alert("Đã xảy ra lỗi khi lưu hình ảnh. Vui lòng thử lại.");
     }
   }
 
-  const handleAppendPages = async (bookData: { title: string; pages: {imageUrl: string, title: string}[] }) => {
-    if (!currentUser || !selectedBook) return;
+  const handlePagesAdd = async (bookData: { title: string; pages: {imageUrl: string, title: string}[] }) => {
+    if (!currentUser || !selectedBook || insertionIndex === null) return;
     try {
       const imageIds = await Promise.all(
           bookData.pages.map(p => window.imageDB.addImage(p.imageUrl))
@@ -484,9 +492,12 @@ const App: React.FC = () => {
           title: bookData.pages[index].title,
       }));
 
+      const originalPages = [...selectedBook.pages];
+      originalPages.splice(insertionIndex, 0, ...newPages);
+      
       const updatedBook = {
           ...selectedBook,
-          pages: [...selectedBook.pages, ...newPages]
+          pages: originalPages
       };
 
       const updatedBooks = books.map(b => b.id === selectedBook.id ? updatedBook : b);
@@ -496,6 +507,9 @@ const App: React.FC = () => {
       setUploadedImages([]);
       setIsAddingPages(false);
       setSelectedBook(updatedBook);
+      setStartPage(insertionIndex + 1); // Go to the first new page
+      setInsertionIndex(null);
+      setFlipbookKey(prev => prev + 1);
     } catch(err) {
       console.error("Không thể thêm trang:", err);
       alert("Đã xảy ra lỗi khi lưu hình ảnh. Vui lòng thử lại.");
@@ -510,16 +524,20 @@ const App: React.FC = () => {
   const handleCancelAddPages = () => {
     setUploadedImages([]);
     setIsAddingPages(false);
+    setInsertionIndex(null);
   };
 
 
   const handleSelectBook = (book: Book) => {
       setSelectedBook(book);
+      setStartPage(0);
+      setFlipbookKey(prev => prev + 1);
   }
   
   const handleGoToDashboard = () => {
       setSelectedBook(null);
       setIsAddingPages(false);
+      setStartPage(0);
   }
 
   const handleDeleteBook = async (bookId: string) => {
@@ -574,8 +592,11 @@ const App: React.FC = () => {
     setBooks(updatedBooks);
     bookService.saveBooks(currentUser.email, updatedBooks);
     
-    // If the book is empty, maybe go back to dashboard. For now, just update state.
+    // Go to the page that replaced the deleted one, or the new last content page.
+    const newBookPage = Math.min(pageIndexToDelete + 1, updatedBook.pages.length);
+    setStartPage(newBookPage);
     setSelectedBook(updatedBook);
+    setFlipbookKey(prev => prev + 1);
   };
   
   const renderContent = () => {
@@ -584,7 +605,7 @@ const App: React.FC = () => {
           if (uploadedImages.length > 0) {
               return <TitleEditor 
                   imageUrls={uploadedImages} 
-                  onConfirm={handleAppendPages} 
+                  onConfirm={handlePagesAdd} 
                   onCancel={handleCancelAddPages} 
                   bookTitle={selectedBook.title}
                   isAddingPages={true}
@@ -595,13 +616,17 @@ const App: React.FC = () => {
       return (
         <div className="w-full h-full">
           <FlipBook 
-            key={selectedBook.id} 
+            key={`${selectedBook.id}-${flipbookKey}`} 
             title={selectedBook.title}
             pages={selectedBook.pages} 
             onTitleUpdate={handlePageUpdate} 
             onPageDelete={handlePageDelete}
             onGoToDashboard={handleGoToDashboard}
-            onAddPages={() => setIsAddingPages(true)}
+            onAddPages={(index) => {
+                setInsertionIndex(index);
+                setIsAddingPages(true);
+            }}
+            startPage={startPage}
           />
         </div>
       );

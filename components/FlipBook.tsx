@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { BookPage } from '../App';
 import HTMLFlipBook from 'react-pageflip';
@@ -8,13 +9,14 @@ interface FlipBookProps {
   onTitleUpdate: (pageIndex: number, newTitle: string) => void;
   onPageDelete: (pageIndex: number) => void;
   onGoToDashboard: () => void;
-  onAddPages: () => void;
+  onAddPages: (insertIndex: number) => void;
+  startPage?: number;
 }
 
 // Icons
 const TrashIcon: React.FC<{className?: string}> = ({className}) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.033-2.124H8.033c-1.12 0-2.033.944-2.033 2.124v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.116m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.033-2.124H8.033c-1.12 0-2.033.944-2.033 2.124v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
   </svg>
 );
 const PencilSquareIcon: React.FC<{className?: string}> = ({className}) => (
@@ -40,6 +42,17 @@ const ListBulletIcon: React.FC<{className?: string}> = ({className}) => (
 const PlusCircleIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+);
+const MagnifyingGlassMinusIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM13.5 10.5h-6" />
+    </svg>
+);
+
+const MagnifyingGlassPlusIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
     </svg>
 );
 
@@ -156,17 +169,26 @@ const PageImage: React.FC<{ imageId: string; alt: string }> = ({ imageId, alt })
 };
 
 
-const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, onPageDelete, onAddPages }) => {
+const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, onPageDelete, onAddPages, startPage }) => {
   const book = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const tocTargetPage = useRef<number | null>(null);
   
-  const [currentPage, setCurrentPage] = useState(0); 
+  const [currentPage, setCurrentPage] = useState(startPage || 0); 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   const [pageDimensions, setPageDimensions] = useState({ width: 500, height: 707 });
   const isSinglePageView = useMediaQuery('(orientation: portrait)');
+
+  useEffect(() => {
+      if (isSinglePageView) {
+          setZoomLevel(100);
+      }
+  }, [isSinglePageView]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -182,7 +204,8 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
       if (isSinglePageView) {
         newWidth = containerWidth;
       } else {
-        newWidth = containerWidth / 2;
+        const scaleFactor = zoomLevel / 100;
+        newWidth = (containerWidth * scaleFactor) / 2;
       }
 
       const newHeight = newWidth * aspectRatio;
@@ -197,7 +220,20 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
       clearTimeout(timeoutId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isSinglePageView]);
+  }, [isSinglePageView, zoomLevel]);
+  
+  // Effect to close add page menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
 
   const tocEntries = useMemo(() => {
@@ -243,6 +279,16 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
     book.current?.pageFlip().turnToPage(0);
     setCurrentPage(0);
   };
+
+  const handleAddPage = (index: number) => {
+    onAddPages(index);
+    setIsAddMenuOpen(false);
+  };
+  
+  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setZoomLevel(parseInt(e.target.value, 10));
+  };
+
 
   // New book structure: TOC(0), ContentPage0(1), ContentPage1(2), etc.
   const isContentVisible = currentPage >= 1 && currentPage <= pages.length;
@@ -329,7 +375,17 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
                         autoFocus
                     />
                 ) : (
-                    <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
+                    <>
+                      <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <button onClick={handleStartEditing} disabled={!currentPageData} className="p-1 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
+                              <PencilSquareIcon className="w-5 h-5 text-blue-500"/>
+                          </button>
+                          <button onClick={handleDelete} disabled={!currentPageData} className="p-1 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+                              <TrashIcon className="w-5 h-5 text-red-500"/>
+                          </button>
+                      </div>
+                    </>
                 )
             ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Mục lục</h2> )}
         </div>
@@ -352,7 +408,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
                 onFlip={onPage}
                 className="shadow-2xl"
                 ref={book}
-                startPage={0}
+                startPage={startPage || 0}
                 drawShadow={true}
                 usePortrait={isSinglePageView}
                 startZIndex={0}
@@ -376,14 +432,40 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
         </div>
         
         <div className="flex justify-between items-center mt-4 mb-4 p-2 border bg-white rounded-full shadow-md w-full max-w-md">
-            <div className="flex justify-start items-center gap-1">
-                <button onClick={handleStartEditing} disabled={!currentPageData} className="p-2 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
-                    <PencilSquareIcon className="w-6 h-6 text-blue-500"/>
-                </button>
-                <button onClick={handleDelete} disabled={!currentPageData} className="p-2 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
-                    <TrashIcon className="w-6 h-6 text-red-500"/>
-                </button>
-                <button onClick={onAddPages} className="p-2 rounded-full hover:bg-green-100 transition-colors" aria-label="Add pages" title="Thêm trang">
+            <div ref={addMenuRef} className="relative flex justify-start">
+                {isAddMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-max bg-white rounded-md shadow-lg border p-1 z-20 text-sm">
+                        <ul className="space-y-1">
+                            {currentPage > 0 && currentPage <= pages.length ? (
+                                <>
+                                    <li>
+                                        <button onClick={() => handleAddPage(currentPage - 1)} className="w-full text-left px-3 py-1 rounded hover:bg-gray-100 transition-colors">
+                                            Thêm vào trước trang này
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button onClick={() => handleAddPage(currentPage)} className="w-full text-left px-3 py-1 rounded hover:bg-gray-100 transition-colors">
+                                            Thêm vào sau trang này
+                                        </button>
+                                    </li>
+                                </>
+                            ) : currentPage === 0 ? (
+                                <li>
+                                    <button onClick={() => handleAddPage(0)} className="w-full text-left px-3 py-1 rounded hover:bg-gray-100 transition-colors">
+                                        Thêm vào đầu sách
+                                    </button>
+                                </li>
+                            ) : (
+                                <li>
+                                    <button onClick={() => handleAddPage(pages.length)} className="w-full text-left px-3 py-1 rounded hover:bg-gray-100 transition-colors">
+                                        Thêm vào cuối sách
+                                    </button>
+                                </li>
+                            )}
+                        </ul>
+                    </div>
+                )}
+                <button onClick={() => setIsAddMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-green-100 transition-colors" aria-label="Thêm trang" title="Thêm trang">
                     <PlusCircleIcon className="w-6 h-6 text-green-500"/>
                 </button>
             </div>
@@ -398,7 +480,23 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
                 </button>
             </div>
 
-            <div className="w-[120px] flex justify-end items-center">
+            <div className="flex justify-end items-center gap-2">
+                 {!isSinglePageView && (
+                    <div className="flex items-center gap-2 bg-gray-100 rounded-full px-2 py-1">
+                        <MagnifyingGlassMinusIcon className="w-5 h-5 text-gray-500"/>
+                        <input
+                            type="range"
+                            min="70"
+                            max="100"
+                            value={zoomLevel}
+                            onChange={handleZoomChange}
+                            className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            aria-label="Điều chỉnh thu phóng"
+                            title={`Thu phóng: ${zoomLevel}%`}
+                        />
+                        <MagnifyingGlassPlusIcon className="w-5 h-5 text-gray-500"/>
+                    </div>
+                )}
                 <button onClick={handleGoToToc} disabled={currentPage === 0} className="p-2 rounded-full enabled:hover:bg-gray-100 disabled:opacity-40 transition-colors" aria-label="Về mục lục" title="Về mục lục">
                     <ListBulletIcon className="w-6 h-6 text-gray-700"/>
                 </button>
