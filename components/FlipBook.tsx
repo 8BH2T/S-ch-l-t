@@ -176,7 +176,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
   const tocTargetPage = useRef<number | null>(null);
   
   const [currentPage, setCurrentPage] = useState(startPage || 0); 
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingPageIndex, setEditingPageIndex] = useState<number | null>(null);
   const [editedTitle, setEditedTitle] = useState('');
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -249,7 +249,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
     } else {
         setCurrentPage(e.data);
     }
-    setIsEditingTitle(false);
+    setEditingPageIndex(null);
   }, []);
 
   const handleNextPage = () => book.current?.pageFlip().flipNext();
@@ -272,7 +272,7 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
         tocTargetPage.current = destinationBookPageNumber;
         book.current.pageFlip().turnToPage(destinationBookPageNumber);
     }
-    setIsEditingTitle(false);
+    setEditingPageIndex(null);
   };
 
   const handleGoToToc = () => {
@@ -295,25 +295,24 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
   const contentPageIndex = isContentVisible ? currentPage - 1 : -1;
   const currentPageData = contentPageIndex !== -1 ? pages[contentPageIndex] : null;
 
-  const handleStartEditing = () => {
-    if (currentPageData) {
-      setEditedTitle(currentPageData.title || '');
-      setIsEditingTitle(true);
+  const handleStartEditing = (pageIndexToEdit: number) => {
+    const pageData = pages[pageIndexToEdit];
+    if (pageData) {
+        setEditedTitle(pageData.title || '');
+        setEditingPageIndex(pageIndexToEdit);
     }
   }
 
   const handleTitleSave = () => {
-    if (currentPageData && contentPageIndex !== -1) {
-        onTitleUpdate(contentPageIndex, editedTitle);
+    if (editingPageIndex !== null) {
+        onTitleUpdate(editingPageIndex, editedTitle);
     }
-    setIsEditingTitle(false);
+    setEditingPageIndex(null);
   }
   
-  const handleDelete = () => {
-    if (currentPageData && contentPageIndex !== -1) {
-        if (window.confirm(`Bạn có chắc muốn xóa trang ${contentPageIndex + 1} không?`)) {
-            onPageDelete(contentPageIndex);
-        }
+  const handleDelete = (pageIndexToDelete: number) => {
+    if (window.confirm(`Bạn có chắc muốn xóa trang ${pageIndexToDelete + 1} không?`)) {
+        onPageDelete(pageIndexToDelete);
     }
   }
   
@@ -363,31 +362,118 @@ const FlipBook: React.FC<FlipBookProps> = ({ title, pages = [], onTitleUpdate, o
   return (
     <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-start overflow-y-auto">
         <div className="w-full max-w-md text-center flex items-center justify-center gap-2 group min-h-[44px] my-2">
-            {isContentVisible && currentPageData ? (
-                isEditingTitle ? (
-                    <input 
-                        type="text"
-                        value={editedTitle}
-                        onChange={e => setEditedTitle(e.target.value)}
-                        onBlur={handleTitleSave}
-                        onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
-                        className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-1/2"
-                        autoFocus
-                    />
-                ) : (
-                    <>
-                      <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
-                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <button onClick={handleStartEditing} disabled={!currentPageData} className="p-1 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
-                              <PencilSquareIcon className="w-5 h-5 text-blue-500"/>
-                          </button>
-                          <button onClick={handleDelete} disabled={!currentPageData} className="p-1 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
-                              <TrashIcon className="w-5 h-5 text-red-500"/>
-                          </button>
-                      </div>
-                    </>
-                )
-            ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Mục lục</h2> )}
+            {isSinglePageView ? (
+                // Portrait View: Renders a single title.
+                <>
+                    {isContentVisible && currentPageData ? (
+                        editingPageIndex === contentPageIndex ? (
+                            <input 
+                                type="text"
+                                value={editedTitle}
+                                onChange={e => setEditedTitle(e.target.value)}
+                                onBlur={handleTitleSave}
+                                onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
+                                className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-1/2"
+                                autoFocus
+                            />
+                        ) : (
+                            <>
+                              <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{currentPageData.title || `Trang ${contentPageIndex + 1}`}</h2>
+                              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  <button onClick={() => handleStartEditing(contentPageIndex)} disabled={!currentPageData} className="p-1 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
+                                      <PencilSquareIcon className="w-5 h-5 text-blue-500"/>
+                                  </button>
+                                  <button onClick={() => handleDelete(contentPageIndex)} disabled={!currentPageData} className="p-1 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+                                      <TrashIcon className="w-5 h-5 text-red-500"/>
+                                  </button>
+                              </div>
+                            </>
+                        )
+                    ) : ( currentPage === 0 && <h2 className="text-xl font-bold text-gray-800 py-1">Mục lục</h2> )}
+                </>
+            ) : (
+                // Landscape View: Renders two titles side-by-side with independent controls.
+                (() => {
+                    const leftBookPageIndex = (currentPage % 2 === 0) ? currentPage : currentPage - 1;
+                    const rightBookPageIndex = leftBookPageIndex + 1;
+
+                    // Data for Left Page
+                    const leftContentIndex = leftBookPageIndex - 1;
+                    const isLeftContent = leftBookPageIndex > 0 && leftBookPageIndex <= pages.length;
+                    const leftPageData = isLeftContent ? pages[leftContentIndex] : null;
+                    const leftTitle = leftBookPageIndex === 0 ? "Mục lục" : (leftPageData?.title || `Trang ${leftBookPageIndex}`);
+
+                    // Data for Right Page
+                    const rightContentIndex = rightBookPageIndex - 1;
+                    const isRightContent = rightBookPageIndex > 0 && rightBookPageIndex <= pages.length;
+                    const rightPageData = isRightContent ? pages[rightContentIndex] : null;
+                    const rightTitleText = isRightContent ? (rightPageData?.title || `Trang ${rightBookPageIndex}`) : null;
+                    
+                    return (
+                        <div className="flex justify-between w-full items-start">
+                            {/* Left Title Area */}
+                            <div className="w-1/2 text-center px-2 flex items-center justify-center gap-2 min-h-[44px]">
+                                {editingPageIndex === leftContentIndex ? (
+                                    <input 
+                                        type="text"
+                                        value={editedTitle}
+                                        onChange={e => setEditedTitle(e.target.value)}
+                                        onBlur={handleTitleSave}
+                                        onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
+                                        className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                                        autoFocus
+                                    />
+                                ) : (
+                                     <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{leftTitle}</h2>
+                                )}
+                                
+                                {isLeftContent && editingPageIndex !== leftContentIndex && (
+                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <button onClick={() => handleStartEditing(leftContentIndex)} className="p-1 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
+                                            <PencilSquareIcon className="w-5 h-5 text-blue-500"/>
+                                        </button>
+                                        <button onClick={() => handleDelete(leftContentIndex)} className="p-1 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+                                            <TrashIcon className="w-5 h-5 text-red-500"/>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Title Area */}
+                            <div className="w-1/2 text-center px-2 flex items-center justify-center gap-2 min-h-[44px]">
+                                {rightTitleText && (
+                                    <>
+                                        {editingPageIndex === rightContentIndex ? (
+                                            <input 
+                                                type="text"
+                                                value={editedTitle}
+                                                onChange={e => setEditedTitle(e.target.value)}
+                                                onBlur={handleTitleSave}
+                                                onKeyDown={e => {if(e.key === 'Enter') handleTitleSave()}}
+                                                className="text-xl font-bold text-center bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <h2 className="text-xl font-bold text-gray-800 py-1 truncate">{rightTitleText}</h2>
+                                        )}
+
+                                        {isRightContent && editingPageIndex !== rightContentIndex && (
+                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                <button onClick={() => handleStartEditing(rightContentIndex)} className="p-1 rounded-full hover:bg-blue-100 disabled:opacity-40 transition-colors" aria-label="Edit title" title="Sửa tiêu đề trang">
+                                                    <PencilSquareIcon className="w-5 h-5 text-blue-500"/>
+                                                </button>
+                                                <button onClick={() => handleDelete(rightContentIndex)} className="p-1 rounded-full hover:bg-red-100 disabled:opacity-40 transition-colors" aria-label="Delete page" title="Xóa trang">
+                                                    <TrashIcon className="w-5 h-5 text-red-500"/>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()
+            )}
         </div>
         
         <div className="flex justify-center items-center" style={{minHeight: `${pageDimensions.height}px`}}>
